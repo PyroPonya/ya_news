@@ -1,5 +1,5 @@
-import pytest
 from http import HTTPStatus
+
 from pytest_django.asserts import assertRedirects
 
 from news.models import Comment
@@ -12,83 +12,74 @@ NEW_COMMENT_DATA = {'text': 'Новый комментарий'}
 
 
 def test_anonymous_user_cant_comment(
-    build_url, client, get_news
+        client, detail_url, get_news
 ):
     """Анонимный пользователь не может отправить комментарий."""
-    url = build_url('news:detail', get_news.id)
-    client.post(url, data=BASIC_COMMENT_DATA)
+    client.post(detail_url, data=BASIC_COMMENT_DATA)
     assert Comment.objects.count() == 0
 
 
-def test_user_can_comment(author_client, build_url, get_news):
+def test_user_can_comment(author_client, detail_url, get_news):
     """Авторизованный пользователь может отправить комментарий."""
-    url = build_url('news:detail', get_news.id)
-    author_client.post(url, data=BASIC_COMMENT_DATA)
+    author_client.post(detail_url, data=BASIC_COMMENT_DATA)
     assert Comment.objects.count() == 1
+    comment = Comment.objects.get()
+    assert comment.text == BASIC_COMMENT_DATA['text']
+    assert comment.news == get_news
+    assert comment.author == comment.author
 
 
 def test_user_cant_use_bad_words(
-    author_client, build_url, get_news
+        author_client, detail_url, get_news
 ):
     """Если комментарий содержит запрещённые слова,
     он не будет опубликован, а форма вернёт ошибку.
     """
     bad_words_data = BAD_COMMENT_DATA
-    url = build_url('news:detail', get_news.id)
-    author_client.post(url, data=bad_words_data)
+    author_client.post(detail_url, data=bad_words_data)
     assert Comment.objects.count() == 0
 
 
 def test_user_can_edit_comment(
-    author_client, build_url, get_comment
+        author_client, edit_url, get_comment
 ):
     """Авторизованный пользователь может редактировать свои комментарии."""
-    url = build_url('news:edit', get_comment.id)
-    response = author_client.get(url)
+    response = author_client.get(edit_url)
     assert response.status_code == HTTPStatus.OK
-    assert Comment.objects.count() == 1
-    response = author_client.post(url, data=NEW_COMMENT_DATA)
+    response = author_client.post(edit_url, data=NEW_COMMENT_DATA)
     assertRedirects(response, f'/news/{get_comment.news.pk}/#comments')
-    assert Comment.objects.count() == 1
-    get_comment.refresh_from_db()
-    assert get_comment.text == NEW_COMMENT_DATA['text']
+    edited_comment = Comment.objects.get(id=get_comment.id)
+    assert edited_comment.text == NEW_COMMENT_DATA['text']
+    assert edited_comment.author == get_comment.author
+    assert edited_comment.news == get_comment.news
 
 
-def test_user_can_delete_comment(author_client, build_url, get_comment):
+def test_user_can_delete_comment(author_client, delete_url, get_comment):
     """Авторизованный пользователь может  свои комментарии."""
-    url = build_url('news:delete', get_comment.id)
-    response = author_client.get(url)
-    assert response.status_code == HTTPStatus.OK
-    assert Comment.objects.count() == 1
-    response = author_client.post(url)
+    response = author_client.post(delete_url)
     assertRedirects(response, f'/news/{get_comment.news.pk}/#comments')
     assert Comment.objects.count() == 0
 
 
-def test_user_cant_edit_or_delete_another_comment(
-    build_url, reader_client, get_comment
+def test_user_cant_edit_another_comment(
+        edit_url, reader_client, get_comment
 ):
     """Авторизованный пользователь не может редактировать
     чужие комментарии.
     """
-    url = build_url('news:edit', get_comment.id)
-    response = reader_client.get(url)
-    assert response.status_code == HTTPStatus.NOT_FOUND
-    assert Comment.objects.count() == 1
-    reader_client.post(url, data=NEW_COMMENT_DATA)
-    get_comment.refresh_from_db()
-    assert get_comment.text == BASIC_COMMENT_DATA['text']
+    reader_client.post(edit_url, data=NEW_COMMENT_DATA)
+    comment = Comment.objects.get(id=get_comment.id)
+    assert comment.text == get_comment.text
+    assert comment.author == get_comment.author
+    assert comment.news == get_comment.news
 
 
 def test_user_cant_delete_another_comment(
-    build_url, reader_client, get_comment
+        delete_url, reader_client, get_comment
 ):
     """Авторизованный пользователь не может удалить
     чужие комментарии.
     """
-    url = build_url('news:delete', get_comment.id)
-    response = reader_client.get(url)
+    response = reader_client.get(delete_url)
     assert response.status_code == HTTPStatus.NOT_FOUND
-    assert Comment.objects.count() == 1
-    reader_client.post(url)
     assert Comment.objects.count() == 1

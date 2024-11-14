@@ -21,69 +21,73 @@ from http import HTTPStatus
 """
 
 
-@pytest.mark.parametrize(
-    'url, args',
+@ pytest.mark.parametrize(
+    'url, user_client, status',
     (
-        ('news:home', False),
-        ('news:detail', True),
-        ('users:signup', False),
-        ('users:login', False),
-        ('users:logout', False),
+        (pytest.lazy_fixture('home_url'),
+         pytest.lazy_fixture('client'),
+         HTTPStatus.OK
+         ),
+        (pytest.lazy_fixture('detail_url'),
+         pytest.lazy_fixture('client'),
+         HTTPStatus.OK
+         ),
+        (pytest.lazy_fixture('signup_url'),
+         pytest.lazy_fixture('client'),
+         HTTPStatus.OK
+         ),
+        (pytest.lazy_fixture('login_url'),
+         pytest.lazy_fixture('client'),
+         HTTPStatus.OK
+         ),
+        (pytest.lazy_fixture('logout_url'),
+         pytest.lazy_fixture('client'),
+         HTTPStatus.OK
+         ),
+        (pytest.lazy_fixture('edit_url'),
+         pytest.lazy_fixture('author_client'),
+         HTTPStatus.OK
+         ),
+        (pytest.lazy_fixture('delete_url'),
+         pytest.lazy_fixture('author_client'),
+         HTTPStatus.OK
+         ),
+        (pytest.lazy_fixture('edit_url'),
+         pytest.lazy_fixture('reader_client'),
+         HTTPStatus.NOT_FOUND
+         ),
+        (pytest.lazy_fixture('delete_url'),
+         pytest.lazy_fixture('reader_client'),
+         HTTPStatus.NOT_FOUND
+         ),
     )
 )
-def test_auth_pages_anonymous_user(args, build_url, client, url, get_news):
+def test_detail_edit_delete_page_access_restricted_to_author(
+    url, user_client, status, get_news, get_comment
+):
     """
     Главная страница доступна анонимному пользователю.
     Страница отдельной новости доступна анонимному пользователю.
     Страницы регистрации пользователей, входа в учётную запись
     и выхода из неё доступны анонимным пользователям.
-    """
-    if not args:
-        response = client.get(build_url(url))
-    else:
-        response = client.get(build_url(url, get_news.id))
-    assert response.status_code == HTTPStatus.OK
-
-
-@ pytest.mark.parametrize(
-    'url, user_client, status',
-    (
-        ('news:edit', (
-            pytest.lazy_fixture('author_client')
-        ), HTTPStatus.OK),
-        ('news:delete', (
-            pytest.lazy_fixture('author_client')
-        ), HTTPStatus.OK),
-        ('news:edit', (
-            pytest.lazy_fixture('reader_client')
-        ), HTTPStatus.NOT_FOUND),
-        ('news:delete', (
-            pytest.lazy_fixture('reader_client')
-        ), HTTPStatus.NOT_FOUND),
-    )
-)
-def test_detail_edit_delete_page_access_restricted_to_author(
-    build_url, url, user_client, status, get_news, get_comment
-):
-    """
     Страницы удаления и редактирования комментария доступны автору комментария.
     Авторизованный пользователь не может зайти на страницы
     редактирования или удаления чужих комментариев (возвращается ошибка 404).
     """
-    response = user_client.get(build_url(url, get_comment.id))
+    response = user_client.get(url)
     assert response.status_code == status
 
 
 @ pytest.mark.parametrize(
     'url',
     (
-        'news:edit',
-        'news:delete',
+        pytest.lazy_fixture('edit_url'),
+        pytest.lazy_fixture('delete_url'),
     )
 )
 def test_redirect_for_anonymous_edit_and_delete(
-    build_url, client, get_comment, url
+    client, get_comment, url
 ):
-    response = client.get(build_url(url, get_comment.id))
+    response = client.get(url)
     assertRedirects(
-        response, f'/auth/login/?next={build_url(url, get_comment.id)}')
+        response, f'/auth/login/?next={url}')

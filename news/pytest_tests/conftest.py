@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
+from django.utils import timezone
 
 import pytest
 from django.test.client import Client
@@ -7,20 +8,53 @@ from django.urls import reverse
 
 from news.models import Comment, News
 
+import yanews.settings as settings
+
 
 @pytest.fixture(autouse=True)
 def allow_db(db):
     yield
 
 
-@pytest.fixture()
-def build_url():
-    def _build_url(name, *args):
-        if None in args:
-            return reverse(name)
-        return reverse(name, args=args)
+"""Url fixtures start"""
 
-    return _build_url
+
+@pytest.fixture
+def home_url():
+    return reverse('news:home')
+
+
+@pytest.fixture
+def detail_url(get_news):
+    return reverse('news:detail', args=(get_news.id,))
+
+
+@pytest.fixture
+def edit_url(get_comment):
+    return reverse('news:edit', args=(get_comment.id,))
+
+
+@pytest.fixture
+def delete_url(get_comment):
+    return reverse('news:delete', args=(get_comment.id,))
+
+
+@pytest.fixture
+def signup_url():
+    return reverse('users:signup')
+
+
+@pytest.fixture
+def login_url():
+    return reverse('users:login')
+
+
+@pytest.fixture
+def logout_url():
+    return reverse('users:logout')
+
+
+"""Url fixtures end"""
 
 
 @pytest.fixture
@@ -62,19 +96,18 @@ def get_comment(author, get_news):
 @pytest.fixture
 def get_multiple_news():
     News.objects.bulk_create(
-        [News(title=f'title {i}', text=f'text {i}', date=datetime.today(
-        ) - timedelta(days=i)) for i in range(20)]
+        [News(title=f'title {i}', text=f'text {i}', date=timezone.now(
+        ) - timedelta(days=i)) for i in range(
+            settings.NEWS_COUNT_ON_HOME_PAGE + 1
+        )]
     )
-    return News.objects.all()
 
 
 @ pytest.fixture
 def get_multiple_comments(author, get_news):
-    Comment.objects.bulk_create(
-        [
-            Comment(text=f'text {i}', author=author, news=get_news,
-                    created=datetime.today() - timedelta(days=i))
-            for i in range(20)
-        ]
-    )
-    return Comment.objects.all()
+    for i in range(10):
+        new_comment = Comment.objects.create(
+            text=f'Какой-то текст {i}', author=author, news=get_news
+        )
+        new_comment.created = timezone.now() - timedelta(days=i)
+        new_comment.save()
