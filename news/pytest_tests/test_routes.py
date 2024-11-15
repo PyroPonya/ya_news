@@ -19,45 +19,48 @@ from http import HTTPStatus
 Авторизованный пользователь не может зайти на страницы
 редактирования или удаления чужих комментариев (возвращается ошибка 404).
 """
+CLIENT = pytest.lazy_fixture('client')
+AUTHOR_CLIENT = pytest.lazy_fixture('author_client')
+READER_CLIENT = pytest.lazy_fixture('reader_client')
 
 
 @ pytest.mark.parametrize(
     'url, user_client, status',
     (
         (pytest.lazy_fixture('home_url'),
-         pytest.lazy_fixture('client'),
+         CLIENT,
          HTTPStatus.OK
          ),
         (pytest.lazy_fixture('detail_url'),
-         pytest.lazy_fixture('client'),
+         CLIENT,
          HTTPStatus.OK
          ),
         (pytest.lazy_fixture('signup_url'),
-         pytest.lazy_fixture('client'),
+         CLIENT,
          HTTPStatus.OK
          ),
         (pytest.lazy_fixture('login_url'),
-         pytest.lazy_fixture('client'),
+         CLIENT,
          HTTPStatus.OK
          ),
         (pytest.lazy_fixture('logout_url'),
-         pytest.lazy_fixture('client'),
+         CLIENT,
          HTTPStatus.OK
          ),
         (pytest.lazy_fixture('edit_url'),
-         pytest.lazy_fixture('author_client'),
+         AUTHOR_CLIENT,
          HTTPStatus.OK
          ),
         (pytest.lazy_fixture('delete_url'),
-         pytest.lazy_fixture('author_client'),
+         AUTHOR_CLIENT,
          HTTPStatus.OK
          ),
         (pytest.lazy_fixture('edit_url'),
-         pytest.lazy_fixture('reader_client'),
+         READER_CLIENT,
          HTTPStatus.NOT_FOUND
          ),
         (pytest.lazy_fixture('delete_url'),
-         pytest.lazy_fixture('reader_client'),
+         READER_CLIENT,
          HTTPStatus.NOT_FOUND
          ),
     )

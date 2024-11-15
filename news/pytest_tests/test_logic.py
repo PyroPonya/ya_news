@@ -1,9 +1,9 @@
 from http import HTTPStatus
 
-from pytest_django.asserts import assertRedirects
+from pytest_django.asserts import assertRedirects, assertFormError
 
 from news.models import Comment
-from news.forms import BAD_WORDS
+from news.forms import BAD_WORDS, WARNING
 
 
 BASIC_COMMENT_DATA = {'text': 'Какой-то текст'}
@@ -35,9 +35,14 @@ def test_user_cant_use_bad_words(
     """Если комментарий содержит запрещённые слова,
     он не будет опубликован, а форма вернёт ошибку.
     """
-    bad_words_data = BAD_COMMENT_DATA
-    author_client.post(detail_url, data=bad_words_data)
+    response = author_client.post(detail_url, data=BAD_COMMENT_DATA)
     assert Comment.objects.count() == 0
+    assertFormError(
+        response,
+        form='form',
+        field='text',
+        errors=WARNING
+    )
 
 
 def test_user_can_edit_comment(
@@ -67,7 +72,8 @@ def test_user_cant_edit_another_comment(
     """Авторизованный пользователь не может редактировать
     чужие комментарии.
     """
-    reader_client.post(edit_url, data=NEW_COMMENT_DATA)
+    response = reader_client.post(edit_url, data=NEW_COMMENT_DATA)
+    assert response.status_code == HTTPStatus.NOT_FOUND
     comment = Comment.objects.get(id=get_comment.id)
     assert comment.text == get_comment.text
     assert comment.author == get_comment.author
